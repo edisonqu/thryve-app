@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, RotateCcw, Sparkles } from "lucide-react";
@@ -82,7 +83,7 @@ const CameraCapture = () => {
     if (!canvasRef.current) return;
     
     setRecognizing(true);
-    setAnalysisStage("Converting image...");
+    setAnalysisStage("Processing image...");
     
     try {
       const blob = await new Promise<Blob>((resolve) => {
@@ -94,16 +95,16 @@ const CameraCapture = () => {
       
       const file = new File([blob], "food.jpg", { type: "image/jpeg" });
       
-      setAnalysisStage("Analyzing with AI to identify food and calculate nutrition...");
+      setAnalysisStage("AI is analyzing the image to identify food and nutritional values...");
       
       const food = await recognizeFoodFromImage(file);
       
       if (food) {
         setRecognizedFood(food);
         setAnalysisStage("");
-        toast.success(`Successfully identified ${food.name}`);
+        toast.success(`Successfully identified: ${food.name}`);
       } else {
-        toast.error("Could not recognize food. Please try again with a clearer image.");
+        toast.error("Could not identify the food. Please try again with a clearer image or different angle.");
         resetCamera();
       }
     } catch (error) {

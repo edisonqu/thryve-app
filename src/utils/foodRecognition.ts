@@ -111,7 +111,7 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
     // Convert the image file to base64
     const base64Image = await fileToBase64(imageFile);
     
-    // Prepare the API request to Gemini with a more detailed prompt
+    // Prepare the API request to Gemini with structured output
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyAsWmAGsRyEEbvHbJ8KESaQYBaFkFuJB68', {
       method: 'POST',
       headers: {
@@ -122,7 +122,7 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
           {
             parts: [
               {
-                text: "You are a food and nutrition expert. Carefully analyze the image and ONLY identify the exact food shown (don't guess if unclear). Do NOT suggest foods not visible in the image. Be precise and accurate about the food type and quantity. If you can't confidently identify the food, respond with 'unidentified'.\n\nFor the identified food, provide nutritional data including accurate calories, carbohydrates, protein, and fat based on nutritional databases. Consider the visible portion size.\n\nRespond ONLY with valid JSON containing these fields:\n- name: The specific food identified (or 'Unidentified Food' if unclear)\n- calories: Numeric estimate in kcal\n- carbs: Grams of carbohydrates\n- protein: Grams of protein\n- fat: Grams of fat\n- servingSize: Description of the portion (e.g., '1 medium apple (182g)')\n\nDo not include any explanation or text outside the JSON."
+                text: "You are a food and nutrition expert. Identify only what you can clearly see in the image. Don't make guesses about foods that aren't visible.\n\nProvide accurate nutritional data for the exact food shown. Be specific about portion size."
               },
               {
                 inline_data: {
@@ -134,10 +134,40 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
           }
         ],
         generationConfig: {
-          temperature: 0.2,
+          temperature: 0.1,
           topK: 32,
           topP: 1,
           maxOutputTokens: 1024,
+        },
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            name: {
+              type: "STRING",
+              description: "The specific food identified (or 'Unidentified Food' if unclear)"
+            },
+            calories: {
+              type: "NUMBER", 
+              description: "Numeric estimate in kcal"
+            },
+            carbs: {
+              type: "NUMBER",
+              description: "Grams of carbohydrates"
+            },
+            protein: {
+              type: "NUMBER",
+              description: "Grams of protein"
+            },
+            fat: {
+              type: "NUMBER",
+              description: "Grams of fat"
+            },
+            servingSize: {
+              type: "STRING",
+              description: "Description of the portion (e.g., '1 medium apple (182g)')"
+            }
+          },
+          required: ["name", "calories", "carbs", "protein", "fat", "servingSize"]
         }
       })
     });
@@ -150,20 +180,31 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
     const data = await response.json();
     console.log('Gemini API response:', data);
     
-    // Extract the text response
-    const textResponse = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    // Extract the JSON response
+    const candidatePart = data.candidates?.[0]?.content?.parts?.[0];
     
-    if (!textResponse) {
-      console.error('No text response from Gemini');
+    if (!candidatePart) {
+      console.error('No response from Gemini');
       return null;
     }
     
-    // Try to extract JSON from the response
-    // Sometimes the model returns markdown-formatted JSON, so we need to clean it
-    const jsonString = textResponse.replace(/```json|```/g, '').trim();
-    
+    // With responseSchema, the response should be structured
     try {
-      const foodData = JSON.parse(jsonString);
+      let foodData;
+      
+      // Check if the response is already structured
+      if (candidatePart.functionResponse) {
+        foodData = candidatePart.functionResponse.outputs;
+      } else if (candidatePart.text) {
+        // Try to extract JSON if it's in text format
+        const jsonString = candidatePart.text.replace(/```json|```/g, '').trim();
+        foodData = JSON.parse(jsonString);
+      }
+      
+      if (!foodData) {
+        console.error('Could not extract food data from response');
+        return null;
+      }
       
       // Validate the parsed data has all required fields
       if (foodData.name && 
@@ -187,8 +228,8 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
         return null;
       }
     } catch (err) {
-      console.error('Error parsing Gemini response as JSON:', err);
-      console.log('Raw response:', textResponse);
+      console.error('Error processing Gemini response:', err);
+      console.log('Raw response:', candidatePart);
       return null;
     }
   } catch (error) {
