@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, RotateCcw } from "lucide-react";
+import { ArrowLeft, Camera, RotateCcw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { recognizeFoodFromImage } from "@/utils/foodRecognition";
 import { useNutrition } from "@/context/NutritionContext";
@@ -19,6 +19,7 @@ const CameraCapture = () => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
   const [recognizedFood, setRecognizedFood] = useState<any | null>(null);
+  const [analysisStage, setAnalysisStage] = useState<string>("");
 
   useEffect(() => {
     startCamera();
@@ -49,6 +50,7 @@ const CameraCapture = () => {
       
       setPhoto(null);
       setRecognizedFood(null);
+      setAnalysisStage("");
     } catch (error) {
       console.error("Error accessing camera:", error);
       toast.error("Could not access camera. Please check permissions.");
@@ -82,6 +84,7 @@ const CameraCapture = () => {
     if (!canvasRef.current) return;
     
     setRecognizing(true);
+    setAnalysisStage("Converting image...");
     
     try {
       // Convert canvas to blob
@@ -95,11 +98,15 @@ const CameraCapture = () => {
       // Create a file from the blob
       const file = new File([blob], "food.jpg", { type: "image/jpeg" });
       
+      setAnalysisStage("Analyzing with Gemini AI...");
+      
       // Recognize food from image
       const food = await recognizeFoodFromImage(file);
       
       if (food) {
         setRecognizedFood(food);
+        setAnalysisStage("");
+        toast.success(`Successfully identified ${food.name}`);
       } else {
         toast.error("Could not recognize food. Please try again.");
         resetCamera();
@@ -162,7 +169,10 @@ const CameraCapture = () => {
 
         {recognizedFood ? (
           <div className="space-y-4 animate-slide-up">
-            <h2 className="text-lg font-medium">Recognized Food</h2>
+            <h2 className="text-lg font-medium flex items-center gap-2">
+              <Sparkles size={18} className="text-yellow-500" />
+              AI Analyzed Result
+            </h2>
             <FoodCard food={recognizedFood} />
             
             <div className="flex space-x-3 mt-4">
@@ -219,7 +229,7 @@ const CameraCapture = () => {
                 <CardContent className="flex items-center justify-center py-4">
                   <div className="text-center">
                     <div className="inline-block w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mb-2" />
-                    <p>Analyzing your food...</p>
+                    <p>{analysisStage || "Analyzing your food..."}</p>
                   </div>
                 </CardContent>
               </Card>
