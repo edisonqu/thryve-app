@@ -1,4 +1,4 @@
-# Welcome to Thryve Nutrition Tracker by Feas team 19
+# Welcome to Thryve Nutrition Tracker by Feas team 1
 
 ## Project info
 
