@@ -29,8 +29,8 @@ const Index = () => {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning";
-    if (hour < 18) return "Good Afternoon";
+    if (hour < 12) return "Good Morning from Thryve";
+    if (hour < 18) return "Good Afternoon from Thryve";
     return "Good Evening";
   };
   

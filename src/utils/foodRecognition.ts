@@ -204,6 +204,16 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
                     6. Return ONLY the JSON object, no other text
                     7. If you cannot determine exact values, use typical values for that food type
                     8. All numbers should be rounded to 1 decimal place
+                    9. If you cannot identify any food in the image, respond with this exact JSON format:
+                    {
+                      "name": "Unknown Food",
+                      "calories": 0,
+                      "carbs": 0,
+                      "protein": 0,
+                      "fat": 0,
+                      "servingSize": "unknown portion",
+                      "unidentified": true
+                    }
                     
                     Example response for a banana:
                     {
@@ -263,7 +273,33 @@ async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
           } else if (candidatePart.text) {
             // Try to extract JSON if it's in text format
             const jsonString = candidatePart.text.replace(/```json|```/g, '').trim();
-            foodData = JSON.parse(jsonString);
+            
+            // Check if the response indicates no food was identified
+            if (jsonString.includes("unable to identify") || 
+                jsonString.includes("can't identify") || 
+                jsonString.includes("cannot identify")) {
+              // Return a special "Unknown Food" object
+              return {
+                id: `unknown_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                name: "Unknown Food",
+                calories: 0,
+                carbs: 0,
+                protein: 0,
+                fat: 0,
+                servingSize: "unknown portion",
+                timestamp: new Date(),
+                imageUrl: URL.createObjectURL(imageFile),
+                unidentified: true
+              };
+            }
+            
+            // Otherwise try to parse as JSON
+            try {
+              foodData = JSON.parse(jsonString);
+            } catch (parseError) {
+              console.error("Failed to parse response as JSON:", parseError);
+              throw new Error("The AI couldn't properly analyze this food image. Please try again with a clearer photo.");
+            }
           }
           
           if (!foodData) {

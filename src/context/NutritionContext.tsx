@@ -11,6 +11,7 @@ export interface Food {
   servingSize: string;
   timestamp: Date;
   imageUrl?: string;
+  unidentified?: boolean
 }
 
 export interface DailyGoals {
