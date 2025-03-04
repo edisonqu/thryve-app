@@ -116,8 +116,27 @@ const CameraCapture = () => {
     }
   };
 
-  const resetCamera = () => {
-    startCamera();
+  const resetCamera = async () => {
+    // Clear any existing video source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
+    // Ensure any existing stream is fully stopped
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    
+    // Reset states
+    setPhoto(null);
+    setRecognizedFood(null);
+    
+    // Small delay before restarting camera to give the browser time to release resources
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Start camera
+    await startCamera();
   };
 
   const confirmFood = () => {
