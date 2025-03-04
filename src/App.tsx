@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { NutritionProvider } from "@/context/NutritionContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import Index from "./pages/Index";
 import CameraCapture from "./pages/CameraCapture";
 import FoodDetail from "./pages/FoodDetail";
@@ -20,6 +21,7 @@ const App = () => (
       <NutritionProvider>
         <Toaster />
         <Sonner position="top-center" />
+        <PWAInstallPrompt />
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">
             <div className="flex-grow">
