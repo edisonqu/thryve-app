@@ -1,4 +1,4 @@
-const CACHE_NAME = 'munch-macro-magic-v1';
+const CACHE_NAME = 'thryve-v1';
 const urlsToCache = [
   '/',
   '/index.html',
