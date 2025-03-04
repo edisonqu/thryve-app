@@ -42,7 +42,7 @@ const Index = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-semibold">{getGreeting()}</h1>
-          <div className="flex space-x-3">
+          {/* <div className="flex space-x-3">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -59,7 +59,7 @@ const Index = () => {
             >
               <PieChart size={20} />
             </Button>
-          </div>
+          </div> */}
         </div>
         
         <Card className="glass-card">
