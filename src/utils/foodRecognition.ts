@@ -151,35 +151,35 @@ export const searchFoods = (query: string): Food[] => {
  */
 export const getSuggestedFoods = (): Food[] => {
   const hour = new Date().getHours();
-  let suggestions: Food[] = [];
+  let filteredFoods: Array<(typeof foodDatabase)[0]> = [];
   
   // Morning suggestions
   if (hour >= 5 && hour < 11) {
-    suggestions = foodDatabase.filter(food => 
+    filteredFoods = foodDatabase.filter(food => 
       ["Oatmeal", "Greek Yogurt", "Egg", "Banana"].includes(food.name)
     );
   } 
   // Lunch suggestions
   else if (hour >= 11 && hour < 15) {
-    suggestions = foodDatabase.filter(food => 
+    filteredFoods = foodDatabase.filter(food => 
       ["Grilled Chicken Breast", "Salad Bowl", "Brown Rice", "Salmon Fillet"].includes(food.name)
     );
   } 
   // Dinner suggestions
   else if (hour >= 17 && hour < 22) {
-    suggestions = foodDatabase.filter(food => 
+    filteredFoods = foodDatabase.filter(food => 
       ["Salmon Fillet", "Steak", "Brown Rice", "Avocado"].includes(food.name)
     );
   } 
   // Snack suggestions
   else {
-    suggestions = foodDatabase.filter(food => 
+    filteredFoods = foodDatabase.filter(food => 
       ["Apple", "Banana", "Greek Yogurt", "Protein Shake"].includes(food.name)
     );
   }
   
-  // Map to include ids and timestamps
-  return suggestions.map(food => ({
+  // Map to include ids and timestamps to make them proper Food objects
+  return filteredFoods.map(food => ({
     ...food,
     id: `suggestion_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
     timestamp: new Date(),

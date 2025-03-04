@@ -8,7 +8,7 @@ import { useNutrition } from "@/context/NutritionContext";
 import { getSuggestedFoods } from "@/utils/foodRecognition";
 import { groupFoodsByMeal } from "@/utils/macroCalculation";
 import { useNavigate } from "react-router-dom";
-import { PieChart, Search, Plus } from "lucide-react";
+import { PieChart, Search, Plus, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
