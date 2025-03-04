@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, RotateCcw, Sparkles } from "lucide-react";
@@ -71,7 +70,6 @@ const CameraCapture = () => {
         const photoData = canvas.toDataURL("image/jpeg");
         setPhoto(photoData);
         
-        // Stop camera stream
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
           setStream(null);
@@ -87,7 +85,6 @@ const CameraCapture = () => {
     setAnalysisStage("Converting image...");
     
     try {
-      // Convert canvas to blob
       const blob = await new Promise<Blob>((resolve) => {
         canvasRef.current?.toBlob((blob) => {
           if (blob) resolve(blob);
@@ -95,12 +92,10 @@ const CameraCapture = () => {
         }, "image/jpeg");
       });
       
-      // Create a file from the blob
       const file = new File([blob], "food.jpg", { type: "image/jpeg" });
       
-      setAnalysisStage("Analyzing with Gemini AI...");
+      setAnalysisStage("Analyzing with AI to identify food and calculate nutrition...");
       
-      // Recognize food from image
       const food = await recognizeFoodFromImage(file);
       
       if (food) {
@@ -108,7 +103,7 @@ const CameraCapture = () => {
         setAnalysisStage("");
         toast.success(`Successfully identified ${food.name}`);
       } else {
-        toast.error("Could not recognize food. Please try again.");
+        toast.error("Could not recognize food. Please try again with a clearer image.");
         resetCamera();
       }
     } catch (error) {
