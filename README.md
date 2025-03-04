@@ -1,8 +1,12 @@
-# Welcome to your Lovable project
+# Welcome to Thryve Nutrition Tracker by Feas team 19
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/a287c9bb-a5ed-4b5f-bdf2-8e2b4e536a91
+**URL**: https://thryve-nutrition-tracker.vercel.app/
+
+## About
+
+This project is developed by Thryve Corporation made by Edison Qu and Jessica.
 
 ## How can I edit this code?
 

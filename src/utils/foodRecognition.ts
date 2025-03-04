@@ -1,7 +1,18 @@
-
 // This implements both mock food recognition and Google Gemini AI for image analysis
 
 import { Food } from "@/context/NutritionContext";
+
+// Rate limiting implementation
+let requestCount = 0;
+let lastResetTime = Date.now();
+
+// Environment variables - using Vite's import.meta.env instead of process.env
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const RATE_LIMIT_MAX_REQUESTS = Number(import.meta.env.VITE_RATE_LIMIT_MAX_REQUESTS || '50');
+const RATE_LIMIT_WINDOW_MS = Number(import.meta.env.VITE_RATE_LIMIT_WINDOW_MS || '60000');
+const REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_REQUEST_TIMEOUT_MS || '30000');
+const MAX_RETRIES = Number(import.meta.env.VITE_MAX_RETRIES || '3');
+const RETRY_DELAY_MS = Number(import.meta.env.VITE_RETRY_DELAY_MS || '1000');
 
 // Sample food database for mock recognition and fallback
 const foodDatabase = [
@@ -104,137 +115,210 @@ const foodDatabase = [
 ];
 
 /**
+ * Check if we've hit the rate limit
+ */
+function checkRateLimit(): boolean {
+  const now = Date.now();
+  
+  // Reset counter if we're in a new time window
+  if (now - lastResetTime > RATE_LIMIT_WINDOW_MS) {
+    requestCount = 0;
+    lastResetTime = now;
+  }
+  
+  // Check if we've hit the limit
+  if (requestCount >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  // Increment the counter and allow the request
+  requestCount++;
+  return true;
+}
+
+/**
+ * Sleep for a specified duration
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Uses Google Gemini to analyze food images and estimate nutrition
  */
 async function analyzeImageWithGemini(imageFile: File): Promise<Food | null> {
+  // Check if API key is available
+  if (!GEMINI_API_KEY) {
+    console.error('Gemini API key is not configured in environment variables');
+    throw new Error('API key not configured. Please set VITE_GEMINI_API_KEY in your .env file.');
+  }
+  
   try {
-    // Convert the image file to base64
     const base64Image = await fileToBase64(imageFile);
     
-    // Prepare the API request to Gemini with structured output
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyAsWmAGsRyEEbvHbJ8KESaQYBaFkFuJB68', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: "You are a food and nutrition expert. Identify only what you can clearly see in the image. Don't make guesses about foods that aren't visible.\n\nProvide accurate nutritional data for the exact food shown. Be specific about portion size."
-              },
-              {
-                inline_data: {
-                  mime_type: "image/jpeg",
-                  data: base64Image
-                }
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          topK: 32,
-          topP: 1,
-          maxOutputTokens: 1024,
-        },
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            name: {
-              type: "STRING",
-              description: "The specific food identified (or 'Unidentified Food' if unclear)"
-            },
-            calories: {
-              type: "NUMBER", 
-              description: "Numeric estimate in kcal"
-            },
-            carbs: {
-              type: "NUMBER",
-              description: "Grams of carbohydrates"
-            },
-            protein: {
-              type: "NUMBER",
-              description: "Grams of protein"
-            },
-            fat: {
-              type: "NUMBER",
-              description: "Grams of fat"
-            },
-            servingSize: {
-              type: "STRING",
-              description: "Description of the portion (e.g., '1 medium apple (182g)')"
-            }
+    // Check rate limiting
+    if (!checkRateLimit()) {
+      throw new Error(`Rate limit exceeded. Please try again after ${RATE_LIMIT_WINDOW_MS/1000} seconds.`);
+    }
+    
+    // Implement retry logic
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        console.log(`Retry attempt ${attempt} of ${MAX_RETRIES}...`);
+        // Wait before retrying
+        await sleep(RETRY_DELAY_MS * attempt); // Exponential backoff
+      }
+      
+      try {
+        // Set up AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${GEMINI_API_KEY}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-          required: ["name", "calories", "carbs", "protein", "fat", "servingSize"]
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `You are a food and nutrition expert. Analyze this food image and provide nutritional information in the following JSON format:
+                    {
+                      "name": "The specific food identified",
+                      "calories": number in kcal (example: 150),
+                      "carbs": grams of carbohydrates (example: 25),
+                      "protein": grams of protein (example: 5),
+                      "fat": grams of fat (example: 3),
+                      "servingSize": "description of the portion"
+                    }
+                    
+                    Important rules:
+                    1. Only identify what you can clearly see in the image
+                    2. Don't make guesses about foods that aren't visible
+                    3. All nutritional values MUST be specific numbers (not null, not ranges, not estimates)
+                    4. Use typical serving sizes and standard nutritional values
+                    5. Be specific about portion size
+                    6. Return ONLY the JSON object, no other text
+                    7. If you cannot determine exact values, use typical values for that food type
+                    8. All numbers should be rounded to 1 decimal place
+                    
+                    Example response for a banana:
+                    {
+                      "name": "Banana",
+                      "calories": 105,
+                      "carbs": 27,
+                      "protein": 1.3,
+                      "fat": 0.4,
+                      "servingSize": "1 medium (118g)"
+                    }`
+                  },
+                  {
+                    inline_data: {
+                      mime_type: "image/jpeg",
+                      data: base64Image
+                    }
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: 0.1,
+              topK: 32,
+              topP: 1,
+              maxOutputTokens: 1024,
+            }
+          }),
+          signal: controller.signal
+        });
+        
+        // Clear timeout
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Gemini API error:', errorText);
+          throw new Error(`API error: ${response.status} ${errorText}`);
         }
-      })
-    });
 
-    if (!response.ok) {
-      console.error('Gemini API error:', await response.text());
-      return null;
-    }
-
-    const data = await response.json();
-    console.log('Gemini API response:', data);
-    
-    // Extract the JSON response
-    const candidatePart = data.candidates?.[0]?.content?.parts?.[0];
-    
-    if (!candidatePart) {
-      console.error('No response from Gemini');
-      return null;
-    }
-    
-    // With responseSchema, the response should be structured
-    try {
-      let foodData;
-      
-      // Check if the response is already structured
-      if (candidatePart.functionResponse) {
-        foodData = candidatePart.functionResponse.outputs;
-      } else if (candidatePart.text) {
-        // Try to extract JSON if it's in text format
-        const jsonString = candidatePart.text.replace(/```json|```/g, '').trim();
-        foodData = JSON.parse(jsonString);
-      }
-      
-      if (!foodData) {
-        console.error('Could not extract food data from response');
-        return null;
-      }
-      
-      // Validate the parsed data has all required fields
-      if (foodData.name && 
-          typeof foodData.calories === 'number' && 
-          typeof foodData.carbs === 'number' &&
-          typeof foodData.protein === 'number' &&
-          typeof foodData.fat === 'number' &&
-          foodData.servingSize) {
+        const data = await response.json();
+        console.log('Gemini API response:', data);
         
-        // Create a unique ID and add timestamp
-        const food: Food = {
-          ...foodData,
-          id: `food_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          timestamp: new Date(),
-          imageUrl: URL.createObjectURL(imageFile),
-        };
+        // Extract the JSON response
+        const candidatePart = data.candidates?.[0]?.content?.parts?.[0];
         
-        return food;
-      } else {
-        console.error('Invalid food data format from Gemini:', foodData);
-        return null;
+        if (!candidatePart) {
+          throw new Error('No response from Gemini');
+        }
+        
+        // With responseSchema, the response should be structured
+        try {
+          let foodData;
+          
+          // Check if the response is already structured
+          if (candidatePart.functionResponse) {
+            foodData = candidatePart.functionResponse.outputs;
+          } else if (candidatePart.text) {
+            // Try to extract JSON if it's in text format
+            const jsonString = candidatePart.text.replace(/```json|```/g, '').trim();
+            foodData = JSON.parse(jsonString);
+          }
+          
+          if (!foodData) {
+            throw new Error('Could not extract food data from response');
+          }
+          
+          // Validate the parsed data has all required fields
+          if (foodData.name && 
+              typeof foodData.calories === 'number' && 
+              typeof foodData.carbs === 'number' &&
+              typeof foodData.protein === 'number' &&
+              typeof foodData.fat === 'number' &&
+              foodData.servingSize &&
+              foodData.calories >= 0 &&
+              foodData.carbs >= 0 &&
+              foodData.protein >= 0 &&
+              foodData.fat >= 0) {
+            
+            // Create a unique ID and add timestamp
+            const food: Food = {
+              ...foodData,
+              id: `food_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+              timestamp: new Date(),
+              imageUrl: URL.createObjectURL(imageFile),
+            };
+            
+            return food;
+          } else {
+            throw new Error('Invalid food data format from Gemini');
+          }
+        } catch (err) {
+          console.error('Error processing Gemini response:', err);
+          console.log('Raw response:', candidatePart);
+          throw err;
+        }
+      } catch (error) {
+        console.error(`Attempt ${attempt + 1} failed:`, error);
+        lastError = error instanceof Error ? error : new Error(String(error));
+        
+        // If this is not the last attempt, continue to the next iteration
+        if (attempt < MAX_RETRIES) {
+          continue;
+        }
+        
+        // On last attempt, throw the error
+        throw lastError;
       }
-    } catch (err) {
-      console.error('Error processing Gemini response:', err);
-      console.log('Raw response:', candidatePart);
-      return null;
     }
+    
+    // This should never be reached due to the throw in the last iteration
+    return null;
+    
   } catch (error) {
     console.error('Error calling Gemini API:', error);
-    return null;
+    throw error;
   }
 }
 
@@ -271,31 +355,13 @@ export const recognizeFoodFromImage = async (imageFile: File): Promise<Food | nu
       return geminiResult;
     }
     
-    console.log('Gemini recognition failed, falling back to mock data');
+    // Instead of falling back, throw the error
+    throw new Error('Failed to recognize food with Gemini AI. Please try again later.');
     
-    // Fallback to mock implementation if Gemini fails
-    return new Promise((resolve) => {
-      // Simulate API call delay
-      setTimeout(() => {
-        // In a real app, we would send the image to an API
-        // For mock, we'll just return a random food from our database
-        const randomFoodIndex = Math.floor(Math.random() * foodDatabase.length);
-        const recognizedFood = foodDatabase[randomFoodIndex];
-        
-        // Create a unique ID and add timestamp
-        const food: Food = {
-          ...recognizedFood,
-          id: `food_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-          timestamp: new Date(),
-          imageUrl: URL.createObjectURL(imageFile),
-        };
-        
-        resolve(food);
-      }, 1500); // Simulate 1.5 second delay
-    });
   } catch (error) {
     console.error('Error in food recognition:', error);
-    return null;
+    // Re-throw the error to be handled by the UI
+    throw error;
   }
 };
 
