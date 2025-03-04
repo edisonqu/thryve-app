@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Camera, RotateCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Camera, RotateCcw, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { recognizeFoodFromImage } from "@/utils/foodRecognition";
 import { useNutrition } from "@/context/NutritionContext";
@@ -15,6 +15,7 @@ const CameraCapture = () => {
   const { addFood } = useNutrition();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
   const [recognizing, setRecognizing] = useState(false);
@@ -79,21 +80,49 @@ const CameraCapture = () => {
     }
   };
 
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const photoData = e.target?.result as string;
+      setPhoto(photoData);
+      
+      // Stop any active camera stream
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
   const recognizeFood = async () => {
-    if (!canvasRef.current) return;
+    // if (!canvasRef.current) return;
+    if (!photo) return;
     
     setRecognizing(true);
     setAnalysisStage("Processing image...");
     
+
     try {
-      const blob = await new Promise<Blob>((resolve) => {
-        canvasRef.current?.toBlob((blob) => {
-          if (blob) resolve(blob);
-          else throw new Error("Failed to create blob from canvas");
-        }, "image/jpeg");
-      });
-      
-      const file = new File([blob], "food.jpg", { type: "image/jpeg" });
+      // const blob = await new Promise<Blob>((resolve) => {
+      //   canvasRef.current?.toBlob((blob) => {
+      //     if (blob) resolve(blob);
+      //     else throw new Error("Failed to create blob from canvas");
+      //   }, "image/jpeg");
+      // });
+
+      let file: File;
+
+      const response = await fetch(photo);
+      const blob = await response.blob();
+      file = new File([blob], "food.jpg", { type: "image/jpeg" });
       
       setAnalysisStage("AI is analyzing the image to identify food and nutritional values...");
       
@@ -182,6 +211,14 @@ const CameraCapture = () => {
           />
         </div>
 
+        <input 
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept="image/*"
+          className="hidden"
+        />
+
         {recognizedFood ? (
           <div className="space-y-4 animate-slide-up">
             <h2 className="text-lg font-medium flex items-center gap-2">
@@ -229,14 +266,25 @@ const CameraCapture = () => {
                 </Button>
               </div>
             ) : (
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={takePhoto}
-              >
-                <Camera size={18} className="mr-2" />
-                Take Photo
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  size="lg"
+                  className="w-full"
+                  onClick={takePhoto}
+                >
+                  <Camera size={18} className="mr-2" />
+                  Take Photo
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="w-full"
+                  onClick={triggerFileUpload}
+                >
+                  <Upload size={18} className="mr-2" />
+                  Upload From Device
+                </Button>
+              </div>
             )}
             
             {recognizing && (
