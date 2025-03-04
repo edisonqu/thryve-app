@@ -7,6 +7,7 @@ import { NutritionProvider } from "@/context/NutritionContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
+import MobilePWAInstallGuide from "@/components/MobilePWAInstallGuide";
 import Index from "./pages/Index";
 import CameraCapture from "./pages/CameraCapture";
 import FoodDetail from "./pages/FoodDetail";
@@ -22,6 +23,7 @@ const App = () => (
         <Toaster />
         <Sonner position="top-center" />
         <PWAInstallPrompt />
+        <MobilePWAInstallGuide />
         <BrowserRouter>
           <div className="min-h-screen flex flex-col">
             <div className="flex-grow">
