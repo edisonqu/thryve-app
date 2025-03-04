@@ -1,6 +1,5 @@
-
 import React, { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Camera, RotateCcw, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { recognizeFoodFromImage } from "@/utils/foodRecognition";
@@ -12,6 +11,7 @@ import FoodCard from "@/components/FoodCard";
 
 const CameraCapture = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { addFood } = useNutrition();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,6 +24,15 @@ const CameraCapture = () => {
 
   useEffect(() => {
     startCamera();
+    
+    // Check if we should automatically trigger file upload
+    if (location.search === "?action=upload" && fileInputRef.current) {
+      // Small delay to ensure component is fully mounted
+      setTimeout(() => {
+        fileInputRef.current?.click();
+      }, 300);
+    }
+    
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());

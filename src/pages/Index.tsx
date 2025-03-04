@@ -8,7 +8,7 @@ import { useNutrition } from "@/context/NutritionContext";
 import { getSuggestedFoods } from "@/utils/foodRecognition";
 import { groupFoodsByMeal } from "@/utils/macroCalculation";
 import { useNavigate } from "react-router-dom";
-import { PieChart, Search, Plus, Camera } from "lucide-react";
+import { PieChart, Search, Camera, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -113,9 +113,12 @@ const Index = () => {
                 <Camera size={18} className="mr-2" />
                 Take Photo
               </Button>
-              <Button variant="outline" onClick={() => navigate("/search")}>
-                <Plus size={18} className="mr-2" />
-                Add Manually
+              <Button variant="outline" onClick={() => {
+                // Navigate to camera page and immediately open file upload
+                navigate("/camera?action=upload");
+              }}>
+                <Upload size={18} className="mr-2" />
+                Upload Manually
               </Button>
             </div>
           </div>
