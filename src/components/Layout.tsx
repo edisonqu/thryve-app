@@ -14,7 +14,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: "/", icon: Home, label: "Dashboard" },
     { path: "/camera", icon: Camera, label: "Capture" },
     { path: "/history", icon: History, label: "History" },
-    { path: "/profile", icon: User, label: "Profile" },
   ];
 
   return (
