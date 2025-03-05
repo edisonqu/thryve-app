@@ -31,7 +31,7 @@ const Index = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good Morning from Thryve";
     if (hour < 18) return "Good Afternoon from Thryve";
-    return "Good Evening";
+    return "Good Evening from Thryve";
   };
   
   // Calculate remaining calories
